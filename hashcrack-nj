@@ -1,0 +1,167 @@
+#!/bin/env node
+
+const fs = require("fs");
+const c = require("crypto");
+const RR = '\u001b[31m',
+BB = '\u001b[34;1m',
+GG = '\u001b[32m',
+YY = '\u001b[33;1m',
+NN = '\u001b[0m';
+const arg = process.argv.slice(2);
+var HELP = "";
+var list = [];
+var on_crack = {};
+var hash_algorithm = "\n"+BB+"Ids Algorithms\t\t\t       Ids Algorithms"+NN+"\n\n";
+//var on_crack = {};
+let count = 0;
+var info = {
+    "ALG": "",
+    "HASH": [''],
+    "HASH_FILE": '',
+    "DICT_FILE": [''],
+    "DIGEST": "hex",
+    "CRACKED": 'cracked_hash.txt'
+}
+const print = {
+    "error":{
+        'notfound': RR+"[!]File not found"+NN,
+        'Require': "Argument Require , use --help for more info."
+    },
+    "help": "./hashcrack-nj --hash <hashFile> -w <dict> -a <algId>\n Use --help for more Info"
+}
+
+for(let i in c.getHashes()){
+    hash_algorithm += (
+        " "+RR+i.toString().padStart(2)+NN +"."+GG+c.getHashes()[i] + NN).padEnd(57);
+    if(i%2 != 0){
+        hash_algorithm += "\n";
+    }
+}
+HELP += "\n\n\n=============================( H45HCR4CK-nj )=============================\n\n"
+HELP += "\ndef: Hashcrack-nj is the hashcracking tool written in nodejs. It Supports\n"
+HELP += "58 hashing algorithm.\n\n"
+HELP += "usege: hashcrack-nj.js -H <hashfile> -a <id> -w <wordlist> \n\n\n";
+HELP += "Arguments:\n\n";
+HELP += "   -H, --hash  [hash]\n"
+HELP += "              to specify hashes file. The file contain only hashes\n";
+HELP += "              line by line.eg: --hash fileOfHashes.txt\n\n";
+HELP += "   -a [Id]    algorithm's Id,  Referance down. add multiple ids sep\n";
+HELP += "              erated by comma.eg: -a 10,25,29\n\n";
+HELP += "   -w , --wordlist [dict]\n"
+HELP += "              list of dictnary files.You can also add multiple word\n";
+HELP += "              list seperated by comma.eg: -w list.txt,../list.txt\n\n";
+HELP += "   -d [digest]\n"
+HELP += "              digest (default: UTF-8).eg: -d ascii\n\n";
+HELP += "   --list     print algorithms with Id and exit\n\n";
+HELP += "   --help     print this banner and exit\n\n";
+HELP += hash_algorithm;
+
+
+// Argument validation
+
+for(let i in arg){
+    switch (arg[i]){
+        case "-H":
+        case "--hash":
+            i++;
+            let tmp = {};
+            hash_file = fs.readFileSync(arg[i]).toString().split("\n")
+            for(j in hash_file){
+                if (hash_file[j] != ""){
+                    tmp["# "+hash_file[j]]  = "";
+                }
+            }
+            info['HASH'] = tmp;
+            info['HASH_FILE'] = arg[i];
+            break;
+        case "-a":
+            i++;
+            let tmp2 = [];
+            for(let j in arg[i].split(",")){
+                tmp2 = tmp2.concat(c.getHashes()[arg[i].split(",")[j]]);
+            }
+            info['ALG'] = tmp2;
+            break;
+        case "-w":
+        case "--wordlist":
+            i++;
+            info['DICT_FILE'] = arg[i].split(",");
+            break;
+        case "-h":
+            console.log(print.help);
+            process.exit()
+        case "--help":
+            console.log(HELP);
+            console.table({
+                "sha1": "hashcrack-nj -H hashFile.txt -a 34 -w wordlist.txt",
+                "md5": "hashcrack-nj -H hashFile.txt -a 25 -w wordlist.txt",
+                "md5,sm3":"hashcrack-nj -H hashFile.txt -a 25,54 -w wordlist.txt",
+                "2 dict":"hashcrack-nj -H h.txt -a 34 -w list1.txt,list2.txt"
+            });
+            process.exit();
+        case "--list":
+            console.log(hash_algorithm);
+            process.exit();
+        case "-d":
+            i++;
+            info.DIGEST = arg[i];
+        default: break;
+    }
+}
+
+
+
+
+// file to list convesion
+for(var l in info.DICT_FILE){
+    try{
+        list = list.concat(
+            fs.readFileSync(
+                info.DICT_FILE[l], 'utf-8')
+            .split("\n")
+        );
+    }catch{
+        console.log(print.error.notfound, info.DICT_FILE[l])
+        process.exit();
+    }
+}
+
+info.START_TIME = new Date
+info.TOTAL_ATMPT = list.length
+console.log(YY+"\nInput Info:"+NN,info, "\n")
+
+
+//crack
+var len = Object.keys(info.HASH).length;
+var time = new Date()
+
+function crack(val){
+    for(let alg in info.ALG){
+        tmp = c.createHash(info.ALG[alg]).update(val).digest(info.DIGEST);
+        for(let hash in info.HASH){
+            if("# "+tmp == hash){
+                if(info.HASH[hash] == ""){
+                    info.HASH[hash] = val;
+                    on_crack[hash] = val;
+                    on_crack.AT = new Date;
+                    on_crack.ALG = info.ALG[alg];
+                    on_crack.ATTEMPT = count.toString()+"/"+info.TOTAL_ATMPT;
+                    console.log(YY+"Cracked:"+NN,on_crack, "\n");
+                    fs.appendFile(info.CRACKED, Date().toString().slice(16,24)+" "+tmp+": "+val+"\n", ()=>{})
+                    on_crack = {};
+                    len--
+                }
+            }
+        }
+    }
+}
+
+for(let i in list){
+    crack(list[i]);
+    if(len <= 0){break}
+    count++
+}
+
+info.TOTAL_ATMPT = count+"/"+info.TOTAL_ATMPT;
+info.END_TIME = new Date
+console.log(YY+'\n\nFinelly:'+NN,info)
